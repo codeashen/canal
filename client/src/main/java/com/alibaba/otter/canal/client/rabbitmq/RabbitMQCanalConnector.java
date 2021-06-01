@@ -29,6 +29,7 @@ public class RabbitMQCanalConnector implements CanalMQConnector {
 
     // 主机名
     private String                              vhost;
+    private int                                 port = 5672;
 
     private String                              queueName;
 
@@ -49,9 +50,10 @@ public class RabbitMQCanalConnector implements CanalMQConnector {
     private BlockingQueue<ConsumerBatchMessage> messageBlockingQueue;
     private volatile ConsumerBatchMessage       lastGetBatchMessage = null;
 
-    public RabbitMQCanalConnector(String nameServer, String vhost, String queueName, String accessKey, String secretKey,
+    public RabbitMQCanalConnector(String nameServer, int port, String vhost, String queueName, String accessKey, String secretKey,
                                   String username, String password, Long resourceOwnerId, boolean flatMessage){
         this.nameServer = nameServer;
+        this.port = port;
         this.vhost = vhost;
         this.queueName = queueName;
         this.accessKey = accessKey;
@@ -72,6 +74,7 @@ public class RabbitMQCanalConnector implements CanalMQConnector {
             factory.setPassword(password);
         }
         factory.setHost(nameServer);
+        factory.setPort(port);
         factory.setAutomaticRecoveryEnabled(true);
         factory.setNetworkRecoveryInterval(5000);
         factory.setVirtualHost(vhost);
