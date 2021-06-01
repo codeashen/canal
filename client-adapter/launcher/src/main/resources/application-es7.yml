@@ -1,0 +1,46 @@
+server:
+  port: 8081
+logging:
+  level:
+    com.alibaba.otter.canal.client.adapter.hbase: DEBUG
+spring:
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    default-property-inclusion: non_null
+
+canal.conf:
+#  canalServerHost: 192.168.58.128:11111     # 对应单机模式下的canal server的ip:port
+#  zookeeperHosts: slave1:2181               # 对应集群模式下的zk地址, 如果配置了canalServerHost, 则以canalServerHost为准
+  mqServers: qamq-cc.intra.yeshj.com:5672   # kafka或rocketMQ地址, 与canalServerHost不能并存
+  flatMessage: true                         # 扁平message开关, 是否以json字符串形式投递数据, 仅在kafka/rocketMQ模式下有效
+  batchSize: 500
+  syncBatchSize: 1000
+  retries: 0
+  timeout:
+  mode: tcp
+  srcDataSources:
+    defaultDS:
+      url: jdbc:mysql://192.168.58.128:3306/mytest?useUnicode=true&useSSL=false
+      username: root
+      password: root
+  consumerProperties:
+    # canal tcp consumer
+    canal.tcp.server.host: 192.168.58.128:11111
+    canal.tcp.batch.size: 500
+    canal.tcp.username: canal
+    canal.tcp.password: canal
+  canalAdapters:
+    - instance: example                       # canal 实例名或者 MQ topic 名, RabbitMQ 下代表 Queue 名
+      groups:
+        - groupId: g1
+          outerAdapters:
+            - name: logger
+            - name: es7                       # or es6
+              key: es7Key
+              hosts: 127.0.0.1:9300           # 127.0.0.1:9200 for rest mode
+              properties:
+                mode: transport               # 可指定transport模式或者rest模式
+                # security.auth: test:123456  #  only used for rest mode
+                cluster.name: my-application  # es cluster name
+
