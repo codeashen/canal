@@ -18,7 +18,7 @@ canal.conf:
   syncBatchSize: 1000
   retries: 0
   timeout:
-  mode: tcp
+  mode: rabbitMQ
   srcDataSources:
     defaultDS:
       url: jdbc:mysql://192.168.58.128:3306/mytest?useUnicode=true&useSSL=false
@@ -30,8 +30,14 @@ canal.conf:
     canal.tcp.batch.size: 500
     canal.tcp.username: canal
     canal.tcp.password: canal
+    # rabbitMQ consumer
+    rabbitmq.host: qamq-cc.intra.yeshj.com:5672
+    rabbitmq.virtual.host: ccwebqa
+    rabbitmq.username: ccwebqa
+    rabbitmq.password: ccwebqa
+    rabbitmq.resource.ownerId:
   canalAdapters:
-    - instance: example                       # canal 实例名或者 MQ topic 名, RabbitMQ 下代表 Queue 名
+    - instance: canal.test.topic.q            # canal 实例名或者 MQ topic 名, RabbitMQ 下代表 Queue 名
       groups:
         - groupId: g1
           outerAdapters:
