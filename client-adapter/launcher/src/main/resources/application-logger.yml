@@ -1,0 +1,36 @@
+server:
+  port: 8081
+logging:
+  level:
+    com.alibaba.otter.canal.client.adapter.hbase: DEBUG
+spring:
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    default-property-inclusion: non_null
+
+canal.conf:
+  canalServerHost: 192.168.58.128:11111
+  batchSize: 500
+  syncBatchSize: 1000
+  retries: 0
+  timeout:
+  mode: tcp
+  consumerProperties:
+    # canal tcp consumer
+    canal.tcp.server.host: 192.168.58.128:11111
+    canal.tcp.batch.size: 500
+    canal.tcp.username: canal
+    canal.tcp.password: canal
+  canalAdapters:
+    - instance: example
+      groups:
+        - groupId: g1
+          outerAdapters:
+            - name: logger       
+
+#  srcDataSources:
+#    defaultDS:
+#      url: jdbc:mysql://127.0.0.1:3306/mytest?useUnicode=true
+#      username: root
+#      password: 121212

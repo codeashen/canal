@@ -1,3 +1,4 @@
+#这个配置文件供远程mysql配置中心使用
 #canal:
 #  manager:
 #    jdbc:
