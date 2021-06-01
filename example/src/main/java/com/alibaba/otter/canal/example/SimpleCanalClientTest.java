@@ -8,24 +8,25 @@ import com.alibaba.otter.canal.common.utils.AddressUtils;
 
 /**
  * 单机模式的测试例子
- * 
+ *
  * @author jianghang 2013-4-15 下午04:19:20
  * @version 1.0.4
  */
 public class SimpleCanalClientTest extends AbstractCanalClientTest {
 
-    public SimpleCanalClientTest(String destination){
+    public SimpleCanalClientTest(String destination) {
         super(destination);
     }
 
-    public static void main(String args[]) {
+    public static void main(String[] args) {
         // 根据ip，直接创建链接，无HA的功能
         String destination = "example";
-        String ip = AddressUtils.getHostIp();
+        // String ip = AddressUtils.getHostIp();
+        String ip = "192.168.58.128";
         CanalConnector connector = CanalConnectors.newSingleConnector(new InetSocketAddress(ip, 11111),
-            destination,
-            "canal",
-            "canal");
+                destination,
+                "canal",
+                "canal");
 
         final SimpleCanalClientTest clientTest = new SimpleCanalClientTest(destination);
         clientTest.setConnector(connector);
