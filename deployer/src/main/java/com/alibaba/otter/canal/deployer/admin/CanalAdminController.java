@@ -28,6 +28,7 @@ import com.google.common.base.Joiner;
 
 /**
  * 提供canal admin的管理操作
+ * 使用了 netty 作为服务端（CanalAdminWithNetty 类中实现），接受控制台 Admin 的请求，返回当前 canalServer 的一些运行状态
  * 
  * @author agapple 2019年8月24日 下午11:39:01
  * @since 1.1.4

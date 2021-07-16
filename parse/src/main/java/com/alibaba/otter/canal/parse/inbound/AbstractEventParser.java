@@ -53,8 +53,8 @@ public abstract class AbstractEventParser<EVENT> extends AbstractCanalLifeCycle 
 
     protected CanalLogPositionManager                logPositionManager         = null;
     protected CanalEventSink<List<CanalEntry.Entry>> eventSink                  = null;
-    protected CanalEventFilter                       eventFilter                = null;
-    protected CanalEventFilter                       eventBlackFilter           = null;
+    protected CanalEventFilter                       eventFilter                = null;     // 库表白名单过滤
+    protected CanalEventFilter                       eventBlackFilter           = null;     // 库表黑名单过滤
 
     // 字段过滤
     protected String		  			  			fieldFilter;
@@ -84,7 +84,7 @@ public abstract class AbstractEventParser<EVENT> extends AbstractCanalLifeCycle 
     protected Thread.UncaughtExceptionHandler        handler                    = (t, e) -> logger.error("parse events has an error",
         e);
 
-    protected EventTransactionBuffer                 transactionBuffer;
+    protected EventTransactionBuffer                 transactionBuffer;                                                    // 缓冲event队列，提供按事务刷新数据的机制
     protected int                                    transactionSize            = 1024;
     protected AtomicBoolean                          needTransactionPosition    = new AtomicBoolean(false);
     protected long                                   lastEntryTime              = 0L;
@@ -103,12 +103,24 @@ public abstract class AbstractEventParser<EVENT> extends AbstractCanalLifeCycle 
     protected ParserExceptionHandler                 parserExceptionHandler;
     protected long                                   serverId;
 
+    /**
+     * 构建BinlogParser对象，用于解析binlog
+     */
     protected abstract BinlogParser buildParser();
 
+    /**
+     * 构建ErosaConnection,用于一般化处理mysql/oracle的解析过程
+     */
     protected abstract ErosaConnection buildErosaConnection();
 
+    /**
+     * 构建MultiStageCoprocessor对象，给解析器提供一个多阶段协同的处理
+     */
     protected abstract MultiStageCoprocessor buildMultiStageCoprocessor();
 
+    /**
+     * 用ErosaConnection获取数据库的位点信息EntryPosition
+     */
     protected abstract EntryPosition findStartPosition(ErosaConnection connection) throws IOException;
 
     protected void preDump(ErosaConnection connection) {
@@ -128,17 +140,18 @@ public abstract class AbstractEventParser<EVENT> extends AbstractCanalLifeCycle 
     }
 
     public AbstractEventParser(){
-        // 初始化一下
+        // 初始化 缓冲event队列，提供按事务刷新数据的机制。构造参数是事务刷新机制
         transactionBuffer = new EventTransactionBuffer(transaction -> {
+            // 将数据交给 eventSink
             boolean successed = consumeTheEventAndProfilingIfNecessary(transaction);
             if (!running) {
                 return;
             }
-
             if (!successed) {
                 throw new CanalParseException("consume failed!");
             }
 
+            // 更新position，记录消费位点
             LogPosition position = buildLastTransactionPosition(transaction);
             if (position != null) { // 可能position为空
                 logPositionManager.persistLogPosition(AbstractEventParser.this.destination, position);
@@ -146,6 +159,19 @@ public abstract class AbstractEventParser<EVENT> extends AbstractCanalLifeCycle 
         });
     }
 
+    /**
+     * 1、初始化缓冲队列transactionBuffer
+     * 2、初始化binlogParser
+     * 3、启动一个新的线程进行核心工作
+     *  3.1 构造Erosa连接ErosaConnection
+     *  3.2 利用ErosaConnection启动一个心跳线程
+     *  3.3 执行dump前的准备工作,查看数据库的binlog_format和binlog_row_image，准备一下DatabaseTableMeta
+     *  3.4 findStartPosition获取最后的位置信息（挺重要的，具体实现在MysqlEventParser）
+     *  3.5 构建一个sinkHandler，实现具体的sink逻辑
+     *  3.6 开始dump，默认是parallel处理的，需要构建一个MultiStageCoprocessor；如果不是parallel，就直接用sinkHandler处理。
+     *      内部while不断循环，根据是否parallel，选择MultiStageCoprocessor或者sinkHandler进行投递。
+     * 4、如果有异常抛出，那么根据异常类型做相关处理，然后退出sink消费，释放一下状态，sleep一段时间后重新开始
+     */
     public void start() {
         super.start();
         MDC.put("destination", destination);
@@ -219,7 +245,7 @@ public abstract class AbstractEventParser<EVENT> extends AbstractCanalLifeCycle 
 
                                     if (entry != null) {
                                         exception = null; // 有正常数据流过，清空exception
-                                        transactionBuffer.add(entry);
+                                        transactionBuffer.add(entry);   // ==== 将数据放到缓冲区 ====
                                         // 记录一下对应的positions
                                         this.lastPosition = buildLastPosition(entry);
                                         // 记录一下最后一次有数据的时间
@@ -384,6 +410,10 @@ public abstract class AbstractEventParser<EVENT> extends AbstractCanalLifeCycle 
         }
     }
 
+    /**
+     * 将数据交给 eventSink 处理，进行过滤分发
+     * @param entrys
+     */
     protected boolean consumeTheEventAndProfilingIfNecessary(List<CanalEntry.Entry> entrys) throws CanalSinkException,
                                                                                            InterruptedException {
         long startTs = -1;
@@ -392,16 +422,15 @@ public abstract class AbstractEventParser<EVENT> extends AbstractCanalLifeCycle 
             startTs = System.currentTimeMillis();
         }
 
+        // 通过eventSink的sink方法，把buffer中的event事件写入store
         boolean result = eventSink.sink(entrys, (runningInfo == null) ? null : runningInfo.getAddress(), destination);
 
         if (enabled) {
             this.processingInterval = System.currentTimeMillis() - startTs;
         }
-
         if (consumedEventCount.incrementAndGet() < 0) {
             consumedEventCount.set(0);
         }
-
         return result;
     }
 

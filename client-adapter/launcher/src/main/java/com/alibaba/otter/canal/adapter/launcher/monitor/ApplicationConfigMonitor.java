@@ -71,17 +71,19 @@ public class ApplicationConfigMonitor {
             try {
                 // 检查yml格式
                 new Yaml().loadAs(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8), Map.class);
-
+                // 销毁之前的 canalAdapterService
                 canalAdapterService.destroy();
 
                 // refresh context
                 contextRefresher.refresh();
 
                 try {
-                    Thread.sleep(2000);
+                    Thread.sleep(2000); // sleep 2s
                 } catch (InterruptedException e) {
                     // ignore
                 }
+                
+                // 重新初始化 canalAdapterService
                 canalAdapterService.init();
                 logger.info("## adapter application config reloaded.");
             } catch (Exception e) {

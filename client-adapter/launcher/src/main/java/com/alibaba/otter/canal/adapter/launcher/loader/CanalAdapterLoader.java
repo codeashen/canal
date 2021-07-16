@@ -46,8 +46,10 @@ public class CanalAdapterLoader {
      * 初始化canal-client
      */
     public void init() {
+        // 设置拓展加载器
         loader = ExtensionLoader.getExtensionLoader(OuterAdapter.class);
 
+        // 遍历 canal.conf.canalAdapters 配置的内容，即所有的 instance实例或者mq的topic
         for (CanalClientConfig.CanalAdapter canalAdapter : canalClientConfig.getCanalAdapters()) {
             for (CanalClientConfig.Group group : canalAdapter.getGroups()) {
                 List<List<OuterAdapter>> canalOuterAdapterGroups = new CopyOnWriteArrayList<>();

@@ -11,6 +11,7 @@ import com.alibaba.otter.canal.store.model.Event;
  * 基于归并排序的sink处理
  * 
  * <pre>
+ * 用于分库分表的场景，对应 GroupEventParser 的数据解析，然后实现基于归并排序的 sink 处理
  * 几点设计说明：
  * 1. 多库合并时，需要控制不满足groupSize的条件，就会阻塞其他库的合并操作.  (比如刚启动时会所有通道正常工作才开始合并，或者中间过程出现主备切换)
  * 2. 库解析出现问题，但没有进行主备切换，此时需要通过{@linkplain CanalEventDownStreamHandler}进行定时监听合并数据的产生时间间隔 

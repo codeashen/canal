@@ -30,12 +30,16 @@ public class ManagerInstanceConfigMonitor extends AbstractCanalLifeCycle impleme
     private static final Logger         logger               = LoggerFactory.getLogger(ManagerInstanceConfigMonitor.class);
     private long                        scanIntervalInSecond = 5;
     private InstanceAction              defaultAction        = null;
+    // 每个instance对应的instanceAction，实际上用的同一个defaultAction，在CanalController的start方法中注册
     private Map<String, InstanceAction> actions              = new MapMaker().makeMap();
+    // 每个instance对应的远程配置
     private Map<String, PlainCanal>     configs              = MigrateMap.makeComputingMap(destination -> new PlainCanal());
+    // 一个固定大小线程池，每隔5s，使用PlainCanalConfigClient去拉取instance配置
     private ScheduledExecutorService    executor             = Executors.newScheduledThreadPool(1,
                                                                  new NamedThreadFactory("canal-instance-scan"));
 
     private volatile boolean            isFirst              = true;
+    // 拉取admin配置的client
     private PlainCanalConfigClient      configClient;
 
     public void start() {

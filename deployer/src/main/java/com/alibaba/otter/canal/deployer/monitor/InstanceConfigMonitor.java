@@ -10,7 +10,16 @@ import com.alibaba.otter.canal.common.CanalLifeCycle;
  */
 public interface InstanceConfigMonitor extends CanalLifeCycle {
 
+    /**
+     * 注册对指定destination的监听
+     * @param destination 指定的destination
+     * @param action      配置发生变化的默认行为
+     */
     void register(String destination, InstanceAction action);
 
+    /**
+     * 取消对指定destination的监听，根本没被调用过
+     * @param destination 指定的destination
+     */
     void unregister(String destination);
 }

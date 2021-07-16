@@ -26,6 +26,8 @@ import com.alibaba.otter.canal.store.model.Event;
 /**
  * mysql binlog数据对象输出
  * 
+ * 普通的单个 parser 的 sink 操作，进行数据过滤，加工，分发
+ * 
  * @author jianghang 2012-7-4 下午03:23:16
  * @version 1.0.0
  */
@@ -86,16 +88,23 @@ public class EntryEventSink extends AbstractCanalEventSink<List<CanalEntry.Entry
         return sinkData(entrys, remoteAddress);
     }
 
+    /**
+     * eventSink过滤分发数据方法，entry转换为event，发给store
+     * @param entrys        entry数据集合
+     * @param remoteAddress 远程地址
+     */
     private boolean sinkData(List<CanalEntry.Entry> entrys, InetSocketAddress remoteAddress)
                                                                                             throws InterruptedException {
-        boolean hasRowData = false;
-        boolean hasHeartBeat = false;
-        List<Event> events = new ArrayList<>();
+        boolean hasRowData = false;             // 数据集中是否有RowData
+        boolean hasHeartBeat = false;           // 数据集中是否有心跳数据
+        List<Event> events = new ArrayList<>(); // 事件集合
         for (CanalEntry.Entry entry : entrys) {
+            // 1、数据过滤
             if (!doFilter(entry)) {
                 continue;
             }
 
+            // 2、事务消息过滤（如果配置了的话）
             if (filterTransactionEntry
                 && (entry.getEntryType() == EntryType.TRANSACTIONBEGIN || entry.getEntryType() == EntryType.TRANSACTIONEND)) {
                 long currentTimestamp = entry.getHeader().getExecuteTime();
@@ -113,16 +122,18 @@ public class EntryEventSink extends AbstractCanalEventSink<List<CanalEntry.Entry
                 }
             }
 
+            // 3、标记是否有RowData和心跳数据
             hasRowData |= (entry.getEntryType() == EntryType.ROWDATA);
             hasHeartBeat |= (entry.getEntryType() == EntryType.HEARTBEAT);
+            // 4、将entry转换为event，即store中存储的数据对象
             Event event = new Event(new LogIdentity(remoteAddress, -1L), entry, raw);
             events.add(event);
         }
 
         if (hasRowData || hasHeartBeat) {
             // 存在row记录 或者 存在heartbeat记录，直接跳给后续处理
-            return doSink(events);
-        } else {
+            return doSink(events);  // 分发数据逻辑
+        } else {  // 既没有RowData也没有心跳包，说明是空事务消息
             // 需要过滤的数据
             if (filterEmtryTransactionEntry && !CollectionUtils.isEmpty(events)) {
                 long currentTimestamp = events.get(0).getExecuteTime();
@@ -140,6 +151,11 @@ public class EntryEventSink extends AbstractCanalEventSink<List<CanalEntry.Entry
         }
     }
 
+    /**
+     * 数据过滤方法
+     * @param entry 数据entry
+     * @return true-不需要过滤，false-需要过滤
+     */
     protected boolean doFilter(CanalEntry.Entry entry) {
         if (filter != null && entry.getEntryType() == EntryType.ROWDATA) {
             String name = getSchemaNameAndTableName(entry);
@@ -164,14 +180,14 @@ public class EntryEventSink extends AbstractCanalEventSink<List<CanalEntry.Entry
         long blockingStart = 0L;
         int fullTimes = 0;
         do {
-            if (eventStore.tryPut(events)) {
+            if (eventStore.tryPut(events)) {  // 关注此处即可，调用tryPut方法，将数据存入store
                 if (fullTimes > 0) {
                     eventsSinkBlockingTime.addAndGet(System.nanoTime() - blockingStart);
                 }
                 for (CanalEventDownStreamHandler<List<Event>> handler : getHandlers()) {
                     events = handler.after(events);
                 }
-                return true;
+                return true;  // 存储成功就直接返回了
             } else {
                 if (fullTimes == 0) {
                     blockingStart = System.nanoTime();
@@ -203,6 +219,11 @@ public class EntryEventSink extends AbstractCanalEventSink<List<CanalEntry.Entry
 
     }
 
+    /**
+     * 获取entry中的 库名.表名
+     * @param entry 数据entry
+     * @return 库名.表名 字符串
+     */
     private String getSchemaNameAndTableName(CanalEntry.Entry entry) {
         return entry.getHeader().getSchemaName() + "." + entry.getHeader().getTableName();
     }

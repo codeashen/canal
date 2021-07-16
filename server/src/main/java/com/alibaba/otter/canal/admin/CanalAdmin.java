@@ -2,6 +2,7 @@ package com.alibaba.otter.canal.admin;
 
 /**
  * Canal Admin动态管理接口
+ * 接口定义了 canalServer 上暴露给 canal-admin 控制台使用的一些服务接口
  * 
  * @author agapple 2019年8月24日 下午9:45:49
  * @since 1.1.4

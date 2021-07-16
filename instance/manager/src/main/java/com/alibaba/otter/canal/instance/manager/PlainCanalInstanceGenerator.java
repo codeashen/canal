@@ -24,7 +24,7 @@ import com.alibaba.otter.canal.parse.CanalEventParser;
  */
 public class PlainCanalInstanceGenerator implements CanalInstanceGenerator {
 
-    private static final Logger    logger      = LoggerFactory.getLogger(SpringCanalInstanceGenerator.class);
+    private static final Logger    logger      = LoggerFactory.getLogger(PlainCanalInstanceGenerator.class);
     private String                 springXml;
     private PlainCanalConfigClient canalConfigClient;
     private String                 defaultName = "instance";
@@ -35,6 +35,10 @@ public class PlainCanalInstanceGenerator implements CanalInstanceGenerator {
         this.canalConfig = canalConfig;
     }
 
+    /**
+     * 获取指定 instance 方法，其实跟 SpringCanalInstanceGenerator 差不多。
+     * 就是从远端 admin 拉到配置，然后替换系统变量，然后再从 spring 的 beanfactory 中构建具体的实例
+     */
     public CanalInstance generate(String destination) {
         synchronized (CanalEventParser.class) {
             try {
@@ -47,6 +51,11 @@ public class PlainCanalInstanceGenerator implements CanalInstanceGenerator {
                 properties.putAll(canalConfig);
 
                 // 设置动态properties,替换掉本地properties
+                /*
+                PlainCanalInstanceGenerator 里面的实现，就是多了从远端拉取配置，然后用 PropertyPlaceholderConfigurer 进行了变量替换，然后还是用 beanFactory 来获取实例。
+                com.alibaba.otter.canal.instance.spring.support.PropertyPlaceholderConfigurer 继承了 
+                org.springframework.beans.factory.config.PropertyPlaceholderConfigurer，设置动态 properties, 替换掉本地 properties
+                 */
                 com.alibaba.otter.canal.instance.spring.support.PropertyPlaceholderConfigurer.propertiesLocal.set(properties);
                 // 设置当前正在加载的通道，加载spring查找文件时会用到该变量
                 System.setProperty("canal.instance.destination", destination);

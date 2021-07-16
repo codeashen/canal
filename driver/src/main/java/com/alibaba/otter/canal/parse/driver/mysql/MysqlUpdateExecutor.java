@@ -11,6 +11,7 @@ import com.alibaba.otter.canal.parse.driver.mysql.packets.server.OKPacket;
 import com.alibaba.otter.canal.parse.driver.mysql.utils.PacketManager;
 
 /**
+ * 更新执行器，作用类似于 PrepareStatement.executeUpdate() 
  * 默认输出的数据编码为UTF-8，如有需要请正确转码
  * 
  * @author jianghang 2013-9-4 上午11:51:11

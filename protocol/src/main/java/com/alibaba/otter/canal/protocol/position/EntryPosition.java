@@ -12,7 +12,7 @@ public class EntryPosition extends TimePosition {
     public static final int   EVENTIDENTITY_SEGMENT = 3;
     public static final char  EVENTIDENTITY_SPLIT   = (char) 5;
 
-    private boolean           included              = false;
+    private boolean           included              = false;            // 是否包含本条数据
     private String            journalName;
     private Long              position;
     // add by agapple at 2016-06-28

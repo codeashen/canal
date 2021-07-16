@@ -39,8 +39,10 @@ public class ExtensionLoader<T> {
 
     private static final Pattern                                     NAME_SEPARATOR             = Pattern.compile("\\s*[,]+\\s*");
 
+    // 扩展加载器，key是CanalMQProducer.class，value是加载器，目前只有一个 CanalMQProducer类型的加载器
     private static final ConcurrentMap<Class<?>, ExtensionLoader<?>> EXTENSION_LOADERS          = new ConcurrentHashMap<>();
 
+    // 实际的 CanalMQProducer 对象缓存
     private static final ConcurrentMap<Class<?>, Object>             EXTENSION_INSTANCES        = new ConcurrentHashMap<>();
 
     private static final ConcurrentMap<String, Object>               EXTENSION_KEY_INSTANCE     = new ConcurrentHashMap<>();
@@ -51,6 +53,7 @@ public class ExtensionLoader<T> {
 
     private final ConcurrentMap<Class<?>, String>                    cachedNames                = new ConcurrentHashMap<>();
 
+    // 维护外部拓展, k: 名称(kafka,rocketmq,rabbitmq), v: 对应的CanalMQProducer的class
     private final Holder<Map<String, Class<?>>>                      cachedClasses              = new Holder<>();
 
     private final ConcurrentMap<String, Holder<Object>>              cachedInstances            = new ConcurrentHashMap<>();
@@ -63,12 +66,19 @@ public class ExtensionLoader<T> {
         return type.isAnnotationPresent(SPI.class);
     }
 
+    /**
+     * 获取指定类型的扩展加载器
+     * @param type 指定类型的class，目前只有 CanalMQProducer.class
+     * @param <T>  指定类型，目前只有 CanalMQProducer
+     * @return
+     */
     public static <T> ExtensionLoader<T> getExtensionLoader(Class<T> type) {
         return getExtensionLoader(type, DEFAULT_CLASSLOADER_POLICY);
     }
 
     @SuppressWarnings("unchecked")
     public static <T> ExtensionLoader<T> getExtensionLoader(Class<T> type, String classLoaderPolicy) {
+        // region 类型检查
         if (type == null) throw new IllegalArgumentException("Extension type == null");
         if (!type.isInterface()) {
             throw new IllegalArgumentException("Extension type(" + type + ") is not interface!");
@@ -77,12 +87,16 @@ public class ExtensionLoader<T> {
             throw new IllegalArgumentException("Extension type(" + type + ") is not extension, because WITHOUT @"
                                                + SPI.class.getSimpleName() + " Annotation!");
         }
+        // endregion
 
+        // region 获取加载器，就是new一下，放到map里，再取出来
         ExtensionLoader<T> loader = (ExtensionLoader<T>) EXTENSION_LOADERS.get(type);
         if (loader == null) {
             EXTENSION_LOADERS.putIfAbsent(type, new ExtensionLoader<T>(type, classLoaderPolicy));
             loader = (ExtensionLoader<T>) EXTENSION_LOADERS.get(type);
         }
+        // endregion
+        
         return loader;
     }
 
@@ -99,7 +113,7 @@ public class ExtensionLoader<T> {
     /**
      * 返回指定名字的扩展
      *
-     * @param name
+     * @param name 指定名称，kafka、rocketmq、rabbitmq
      * @return
      */
     @SuppressWarnings("unchecked")
@@ -118,7 +132,7 @@ public class ExtensionLoader<T> {
             synchronized (holder) {
                 instance = holder.get();
                 if (instance == null) {
-                    instance = createExtension(name, spiDir, standbyDir);
+                    instance = createExtension(name, spiDir, standbyDir);  // 创建拓展，即指定的CanalMQProducer
                     holder.set(instance);
                 }
             }
@@ -164,15 +178,19 @@ public class ExtensionLoader<T> {
 
     @SuppressWarnings("unchecked")
     public T createExtension(String name, String spiDir, String standbyDir) {
+        // region 获取指定名称的拓展的 CanalMQProducer.class
         Class<?> clazz = getExtensionClasses(spiDir, standbyDir).get(name);
         if (clazz == null) {
             throw new IllegalStateException("Extension instance(name: " + name + ", class: " + type
                                             + ")  could not be instantiated: class could not be found");
         }
+        // endregion
+
+        // region 实例化并返回 CanalMQProducer
         try {
             T instance = (T) EXTENSION_INSTANCES.get(clazz);
             if (instance == null) {
-                EXTENSION_INSTANCES.putIfAbsent(clazz, (T) clazz.newInstance());
+                EXTENSION_INSTANCES.putIfAbsent(clazz, (T) clazz.newInstance());  // 实例化并存如本地缓存
                 instance = (T) EXTENSION_INSTANCES.get(clazz);
             }
             return instance;
@@ -180,6 +198,7 @@ public class ExtensionLoader<T> {
             throw new IllegalStateException("Extension instance(name: " + name + ", class: " + type
                                             + ")  could not be instantiated: " + t.getMessage(), t);
         }
+        // endregion
     }
 
     @SuppressWarnings("unchecked")
@@ -202,14 +221,20 @@ public class ExtensionLoader<T> {
         }
     }
 
+    /**
+     * 把 {canal_dir}/plugin 下的jar包加载进来，将对应的Producer存入 {@link cachedClasses} 中
+     * @param spiDir
+     * @param standbyDir
+     * @return
+     */
     private Map<String, Class<?>> getExtensionClasses(String spiDir, String standbyDir) {
         Map<String, Class<?>> classes = cachedClasses.get();
         if (classes == null) {
             synchronized (cachedClasses) {
                 classes = cachedClasses.get();
                 if (classes == null) {
-                    classes = loadExtensionClasses(spiDir, standbyDir);
-                    cachedClasses.set(classes);
+                    classes = loadExtensionClasses(spiDir, standbyDir);  // 加载目录下的所有拓展
+                    cachedClasses.set(classes);  // 将加载到的拓展全部设置本地缓存中
                 }
             }
         }
@@ -247,7 +272,14 @@ public class ExtensionLoader<T> {
         return null;
     }
 
+    /**
+     * 加载所有的外部拓展 CanalMQProducer
+     * @param spiDir
+     * @param standbyDir
+     * @return 返回Map，存放所有的 名称-Producer，如：rabbitmq-CanalRabbitMQProducer
+     */
     private Map<String, Class<?>> loadExtensionClasses(String spiDir, String standbyDir) {
+        // region 设置默认扩展名称（kafka）
         final SPI defaultAnnotation = type.getAnnotation(SPI.class);
         if (defaultAnnotation != null) {
             String value = defaultAnnotation.value();
@@ -260,8 +292,9 @@ public class ExtensionLoader<T> {
                 if (names.length == 1) cachedDefaultName = names[0];
             }
         }
+        // endregion
 
-        Map<String, Class<?>> extensionClasses = new HashMap<>();
+        Map<String, Class<?>> extensionClasses = new HashMap<>(); //返回值
 
         if (spiDir != null && standbyDir != null) {
             // 1. plugin folder，customized extension classLoader
@@ -275,6 +308,7 @@ public class ExtensionLoader<T> {
             }
             logger.info("extension classpath dir: " + externalLibDir.getAbsolutePath());
             if (externalLibDir.exists()) {
+                // 循环plugin下的所有jar包，加载 META-INF/canal/ 文件指定的名称和类名，放到返回值map里
                 File[] files = externalLibDir.listFiles((dir1, name) -> name.endsWith(".jar"));
                 if (files != null) {
                     for (File f : files) {

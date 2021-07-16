@@ -44,19 +44,25 @@ public class CanalEventUtils {
 
     /**
      * 根据entry创建对应的Position对象
+     * 事实上，parser 模块解析后，已经将位置信息：binlog 文件，position 封装到了 Event 中，createPosition 方法只是将这些信息提取出来
      */
     public static LogPosition createPosition(Event event) {
+        // =============创建一个EntryPosition实例，提取event中的位置信息============
         EntryPosition position = new EntryPosition();
+        // event所在的binlog文件
         position.setJournalName(event.getJournalName());
+        // event所在binlog文件中的位置
         position.setPosition(event.getPosition());
+        // event的创建时间
         position.setTimestamp(event.getExecuteTime());
-        // add serverId at 2016-06-28
+        // event是mysql主从集群哪一个实例上生成的，一般都是主库，如果从库没有配置read-only，那么serverId也可能是从库
         position.setServerId(event.getServerId());
         // add gtid
         position.setGtid(event.getGtid());
-
+        // ===========将EntryPosition实例封装到一个LogPosition对象中===============
         LogPosition logPosition = new LogPosition();
         logPosition.setPostion(position);
+        // LogIdentity中包含了这个event来源的mysql实例的ip地址信息
         logPosition.setIdentity(event.getLogIdentity());
         return logPosition;
     }

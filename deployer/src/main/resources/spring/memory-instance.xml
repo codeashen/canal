@@ -9,6 +9,12 @@
            http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.0.xsd
            http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-2.5.xsd"
 	default-autowire="byName">
+    
+    <!--
+    metaManager 都选择了内存版模式，记录位点的都选择了 memory 模式，重启后又会回到初始位点进行解析
+    特点：速度最快，依赖最少 (不需要 zookeeper)
+    场景：一般应用在 quickstart，或者是出现问题后，进行数据分析的场景，不应该将其应用于生产环境 
+    -->
 
 	<import resource="classpath:spring/base-instance.xml" />
 

@@ -91,7 +91,7 @@
 		<appender-ref ref="STDOUT" />
 		<appender-ref ref="CANAL-ROOT" />
 	</logger>
-	<root level="WARN">
+	<root level="DEBUGGER">
 		 <appender-ref ref="STDOUT"/>  
 		<appender-ref ref="CANAL-ROOT" />
 	</root>

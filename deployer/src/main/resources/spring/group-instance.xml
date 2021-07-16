@@ -9,6 +9,13 @@
            http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.0.xsd
            http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-2.5.xsd"
 	default-autowire="byName">
+    
+    <!--
+    主要针对需要进行多库合并时，可以将多个物理 instance 合并为一个逻辑 instance，提供客户端访问。
+    场景：分库业务。 比如产品数据拆分了 4 个库，每个库会有一个 instance。
+        如果不用 group，业务上要消费数据时，需要启动 4 个客户端，分别链接 4 个 instance 实例。
+        使用 group 后，可以在 canal server 上合并为一个逻辑 instance，只需要启动 1 个客户端，链接这个逻辑 instance 即可。
+    -->
 
 	<import resource="classpath:spring/base-instance.xml" />
 

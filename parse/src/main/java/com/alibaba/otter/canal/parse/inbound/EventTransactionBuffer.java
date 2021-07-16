@@ -13,6 +13,7 @@ import com.alibaba.otter.canal.store.CanalStoreException;
 
 /**
  * 缓冲event队列，提供按事务刷新数据的机制
+ * <p>和store一样，使用ringBuffer，环形队列。
  * 
  * @author jianghang 2012-12-6 上午11:05:12
  * @version 1.0.0
@@ -20,14 +21,14 @@ import com.alibaba.otter.canal.store.CanalStoreException;
 public class EventTransactionBuffer extends AbstractCanalLifeCycle {
 
     private static final long        INIT_SQEUENCE = -1;
-    private int                      bufferSize    = 1024;
-    private int                      indexMask;
-    private CanalEntry.Entry[]       entries;
+    private int                      bufferSize    = 1024;  // ringBuffer大小
+    private int                      indexMask;             // 取余值
+    private CanalEntry.Entry[]       entries;               // 存放环形队列数据
 
     private AtomicLong               putSequence   = new AtomicLong(INIT_SQEUENCE); // 代表当前put操作最后一次写操作发生的位置
     private AtomicLong               flushSequence = new AtomicLong(INIT_SQEUENCE); // 代表满足flush条件后最后一次数据flush的时间
 
-    private TransactionFlushCallback flushCallback;
+    private TransactionFlushCallback flushCallback;         // 事务刷新机制，flush数据用到其中方法
 
     public EventTransactionBuffer(){
 
@@ -62,17 +63,23 @@ public class EventTransactionBuffer extends AbstractCanalLifeCycle {
         }
     }
 
+    /**
+     * 数据放入缓冲区方法，根据entry的类型执行不同的存入、刷新操作
+     * 
+     * @param entry 数据
+     * @throws InterruptedException
+     */
     public void add(CanalEntry.Entry entry) throws InterruptedException {
         switch (entry.getEntryType()) {
-            case TRANSACTIONBEGIN:
+            case TRANSACTIONBEGIN:  //事务开始
                 flush();// 刷新上一次的数据
                 put(entry);
                 break;
-            case TRANSACTIONEND:
+            case TRANSACTIONEND:  //事务结束
                 put(entry);
                 flush();
                 break;
-            case ROWDATA:
+            case ROWDATA:  //RowData数据
                 put(entry);
                 // 针对非DML的数据，直接输出，不进行buffer控制
                 EventType eventType = entry.getHeader().getEventType();
@@ -80,7 +87,7 @@ public class EventTransactionBuffer extends AbstractCanalLifeCycle {
                     flush();
                 }
                 break;
-            case HEARTBEAT:
+            case HEARTBEAT:  //心跳
                 // master过来的heartbeat，说明binlog已经读完了，是idle状态
                 put(entry);
                 flush();
@@ -95,6 +102,11 @@ public class EventTransactionBuffer extends AbstractCanalLifeCycle {
         flushSequence.set(INIT_SQEUENCE);
     }
 
+    /**
+     * 将数据放入ringBuffer中
+     * @param data
+     * @throws InterruptedException
+     */
     private void put(CanalEntry.Entry data) throws InterruptedException {
         // 首先检查是否有空位
         if (checkFreeSlotAt(putSequence.get() + 1)) {
@@ -110,6 +122,10 @@ public class EventTransactionBuffer extends AbstractCanalLifeCycle {
         }
     }
 
+    /**
+     * 将ringBuffer中的数据flush出去，更新flush位置
+     * @throws InterruptedException
+     */
     private void flush() throws InterruptedException {
         long start = this.flushSequence.get() + 1;
         long end = this.putSequence.get();
@@ -120,7 +136,7 @@ public class EventTransactionBuffer extends AbstractCanalLifeCycle {
                 transaction.add(this.entries[getIndex(next)]);
             }
 
-            flushCallback.flush(transaction);
+            flushCallback.flush(transaction);// flush数据，具体实现在 AbstractEventParser 构造方法中的匿名内部类
             flushSequence.set(end);// flush成功后，更新flush位置
         }
     }
@@ -157,6 +173,7 @@ public class EventTransactionBuffer extends AbstractCanalLifeCycle {
 
     /**
      * 事务刷新机制
+     * 其实就是将 eventParser 缓冲区的数据教给 eventSink 处理
      * 
      * @author jianghang 2012-12-6 上午11:57:38
      * @version 1.0.0

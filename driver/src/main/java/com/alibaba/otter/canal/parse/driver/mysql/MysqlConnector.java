@@ -26,6 +26,7 @@ import com.alibaba.otter.canal.parse.driver.mysql.utils.PacketManager;
 
 /**
  * 基于mysql socket协议的链接实现
+ * 表示一个数据库连接，作用类似于 java.sql.Connection
  * 
  * @author jianghang 2013-2-18 下午09:22:30
  * @version 1.0.1

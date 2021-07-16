@@ -21,7 +21,7 @@ public class Event implements Serializable {
 
     private static final long serialVersionUID = 1333330351758762739L;
 
-    private LogIdentity       logIdentity;                            // 记录数据产生的来源
+    private LogIdentity       logIdentity;      // protocol模块类，记录数据产生的来源，mysql地址(sourceAddress)和slaveId
     private ByteString        rawEntry;
 
     private long              executeTime;
@@ -35,7 +35,7 @@ public class Event implements Serializable {
     private int               rowsCount;
 
     // ==== https://github.com/alibaba/canal/issues/1019
-    private CanalEntry.Entry  entry;
+    private CanalEntry.Entry  entry;            // protocol模块类，封装了binlog事件的数据
 
     public Event(){
     }

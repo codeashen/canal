@@ -45,13 +45,19 @@ public class CanalRabbitMQProducer extends AbstractMQProducer implements CanalMQ
     private Connection          connect;
     private Channel             channel;
 
+    /**
+     * 初始化 Producer 属性
+     * @param properties
+     */
     @Override
     public void init(Properties properties) {
+        // 读取属性，设置上
         RabbitMQProducerConfig rabbitMQProperties = new RabbitMQProducerConfig();
         this.mqProperties = rabbitMQProperties;
         super.init(properties);
         loadRabbitMQProperties(properties);
 
+        // 以下就是rabbitmq的api了
         ConnectionFactory factory = new ConnectionFactory();
         String servers = rabbitMQProperties.getHost();
         if (servers.contains(":")) {

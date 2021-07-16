@@ -226,6 +226,11 @@ public class SimpleCanalConnector implements CanalConnector {
         subscribe(""); // 传递空字符即可
     }
 
+    /**
+     * 客户端消息订阅
+     * @param filter 客户端消息过滤filter，如果为空，以服务端filter为准，不为空则直接替换服务端filter
+     * @throws CanalClientException
+     */
     public void subscribe(String filter) throws CanalClientException {
         waitClientRunning();
         if (!running) {
@@ -233,11 +238,11 @@ public class SimpleCanalConnector implements CanalConnector {
         }
         try {
             writeWithHeader(Packet.newBuilder()
-                .setType(PacketType.SUBSCRIPTION)
-                .setBody(Sub.newBuilder()
+                    .setType(PacketType.SUBSCRIPTION)
+                    .setBody(Sub.newBuilder()
                     .setDestination(clientIdentity.getDestination())
                     .setClientId(String.valueOf(clientIdentity.getClientId()))
-                    .setFilter(filter != null ? filter : "")
+                    .setFilter(filter != null ? filter : ".*")
                     .build()
                     .toByteString())
                 .build()

@@ -9,6 +9,12 @@
            http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.0.xsd
            http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-2.5.xsd"
 	default-autowire="byName">
+    
+    <!--
+    metaManager 选择了基于 file 持久化模式，注意，不支持 HA 机制.
+    特点：支持单机持久化
+    场景：生产环境，无 HA 需求，简单可用. 
+    -->
 
 	<import resource="classpath:spring/base-instance.xml" />
 

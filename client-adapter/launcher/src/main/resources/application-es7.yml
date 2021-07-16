@@ -10,43 +10,42 @@ spring:
     default-property-inclusion: non_null
 
 canal.conf:
-#  canalServerHost: 192.168.58.128:11111     # 对应单机模式下的canal server的ip:port
-#  zookeeperHosts: slave1:2181               # 对应集群模式下的zk地址, 如果配置了canalServerHost, 则以canalServerHost为准
+#  canalServerHost: 192.168.58.128:11111    # 对应单机模式下的canal server的ip:port
+#  zookeeperHosts: slave1:2181              # 对应集群模式下的zk地址, 如果配置了canalServerHost, 则以canalServerHost为准
   mqServers: qamq-cc.intra.yeshj.com:5672   # kafka或rocketMQ地址, 与canalServerHost不能并存
   flatMessage: true                         # 扁平message开关, 是否以json字符串形式投递数据, 仅在kafka/rocketMQ模式下有效
-  batchSize: 500
-  syncBatchSize: 1000
-  retries: 0
-  timeout:
-  mode: rabbitMQ
-  srcDataSources:
-    defaultDS:
+  batchSize: 500                            # 每次获取数据批大小，单位k
+  syncBatchSize: 1000                       # 每次同步数批数量
+  retries: 0                                # 重试次数，达到重试次数后，即使失败还是会ack。-1为无限重试
+  timeout:                                  # 同步超时时间，单位ms
+  mode: rabbitMQ                            # canal client模式
+  srcDataSources:                           # 源数据库
+    defaultDS:                              # 自定义名称
       url: jdbc:mysql://192.168.58.128:3306/mytest?useUnicode=true&useSSL=false
       username: root
       password: root
-  consumerProperties:
+  consumerProperties:                       # 消费端属性properties
     # canal tcp consumer
-    canal.tcp.server.host: 192.168.58.128:11111
-    canal.tcp.batch.size: 500
-    canal.tcp.username: canal
-    canal.tcp.password: canal
+#    canal.tcp.server.host: 192.168.58.128:11111
+#    canal.tcp.batch.size: 500
+#    canal.tcp.username: canal
+#    canal.tcp.password: canal
     # rabbitMQ consumer
     rabbitmq.host: qamq-cc.intra.yeshj.com:5672
     rabbitmq.virtual.host: ccwebqa
     rabbitmq.username: ccwebqa
     rabbitmq.password: ccwebqa
     rabbitmq.resource.ownerId:
-  canalAdapters:
+  canalAdapters:                              # 适配器列表
     - instance: canal.test.topic.q            # canal 实例名或者 MQ topic 名, RabbitMQ 下代表 Queue 名
-      groups:
-        - groupId: g1
-          outerAdapters:
-            - name: logger
+      groups:                                 # 分组列表
+        - groupId: g1                         # 分组id（rocketmq和kafka下，作为消费者组名）
+          outerAdapters:                      # 分组内适配器列表
+#            - name: logger                    # 适配器
             - name: es7                       # or es6
-              key: es7Key
+              key: es7Key                     # 任务名，和任务配置文件名对应
               hosts: 127.0.0.1:9300           # 127.0.0.1:9200 for rest mode
               properties:
                 mode: transport               # 可指定transport模式或者rest模式
-                # security.auth: test:123456  #  only used for rest mode
-                cluster.name: my-application  # es cluster name
-
+                # security.auth: test:123456  # only used for rest mode
+                cluster.name: my-application  # es集群名称

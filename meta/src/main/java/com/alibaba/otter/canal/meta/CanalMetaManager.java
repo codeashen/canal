@@ -12,6 +12,8 @@ import com.alibaba.otter.canal.protocol.position.PositionRange;
 /**
  * meta信息管理器
  * 
+ * 用于管理 instance 的元数据，有多种实现方式，包括基于内存、基于文件、基于内存 + zookeeper 混合、基于 zookeeper 等
+ * 
  * @author jianghang 2012-6-14 下午09:28:48
  * @author zebin.xuzb
  * @version 1.0.0

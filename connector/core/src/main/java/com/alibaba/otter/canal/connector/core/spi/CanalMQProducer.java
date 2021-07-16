@@ -13,7 +13,7 @@ import com.alibaba.otter.canal.protocol.Message;
  * @author rewerma 2020-01-27
  * @version 1.0.0
  */
-@SPI("kafka")
+@SPI("kafka")  // 这个kafka标识默认值
 public interface CanalMQProducer {
 
     /**

@@ -28,14 +28,19 @@ public class CanalMQStarter {
 
     private volatile boolean             running        = false;
 
+    // 工作线程池，对每个 instance 起一个 worker 线程
     private ExecutorService              executorService;
 
+    // 消息生产者，投递 mq 消息
     private CanalMQProducer              canalMQProducer;
 
+    // 封装 MQ 配置
     private MQProperties                 mqProperties;
 
+    // 委托给 CanalServerWithEmbedded 处理，和 CanalServerWithNetty 一样
     private CanalServerWithEmbedded      canalServer;
 
+    // 记录了 destination(instance的标识) 和 worker 线程的关系
     private Map<String, CanalMQRunnable> canalMQWorks   = new ConcurrentHashMap<>();
 
     private static Thread                shutdownThread = null;
@@ -55,23 +60,27 @@ public class CanalMQStarter {
                 System.setProperty("canal.instance.filter.transaction.entry", "true");
             }
 
+            // 1、获取单例的 CanalServerWithEmbedded
             canalServer = CanalServerWithEmbedded.instance();
 
-            // 对应每个instance启动一个worker线程
+            // region 2、对应每个 instance 启动一个 worker 线程 CanalMQRunnable
             executorService = Executors.newCachedThreadPool();
             logger.info("## start the MQ workers.");
-
+            
             String[] dsts = StringUtils.split(destinations, ",");
             for (String destination : dsts) {
                 destination = destination.trim();
+                // 每个 instance 对应的 worker 线程，丢到线程池里去执行
                 CanalMQRunnable canalMQRunnable = new CanalMQRunnable(destination);
                 canalMQWorks.put(destination, canalMQRunnable);
                 executorService.execute(canalMQRunnable);
             }
 
-            running = true;
+            running = true;  // 设置启动标识位，线程run方法
             logger.info("## the MQ workers is running now ......");
+            // endregion
 
+            // region 3、注册 ShutdownHook，退出时关闭线程池和 mqProducer
             shutdownThread = new Thread(() -> {
                 try {
                     logger.info("## stop the MQ workers");
@@ -84,8 +93,9 @@ public class CanalMQStarter {
                     logger.info("## canal MQ is down.");
                 }
             });
-
             Runtime.getRuntime().addShutdownHook(shutdownThread);
+            // endregion
+            
         } catch (Throwable e) {
             logger.error("## Something goes wrong when starting up the canal MQ workers:", e);
         }
@@ -105,6 +115,10 @@ public class CanalMQStarter {
         }
     }
 
+    /**
+     * 为指定 destination 注册一个工作线程，放到线程池中执行
+     * @param destination
+     */
     public synchronized void startDestination(String destination) {
         CanalInstance canalInstance = canalServer.getCanalInstances().get(destination);
         if (canalInstance != null) {
@@ -116,6 +130,10 @@ public class CanalMQStarter {
         }
     }
 
+    /**
+     * 停止并移除指定 destination 的工作线程
+     * @param destination
+     */
     public synchronized void stopDestination(String destination) {
         CanalMQRunnable canalMQRunable = canalMQWorks.get(destination);
         if (canalMQRunable != null) {
@@ -125,6 +143,12 @@ public class CanalMQStarter {
         }
     }
 
+    /**
+     * 工作线程方法，每一个工作线程对应一个 instance（destination名指定的），
+     * 用于循环拉取 binlog，发送 MQ
+     * @param destination
+     * @param destinationRunning
+     */
     private void worker(String destination, AtomicBoolean destinationRunning) {
         while (!running || !destinationRunning.get()) {
             try {
@@ -133,12 +157,14 @@ public class CanalMQStarter {
                 // ignore
             }
         }
-
         logger.info("## start the MQ producer: {}.", destination);
         MDC.put("destination", destination);
+        
+        // 1、给自己创建一个身份标识，作为 client
         final ClientIdentity clientIdentity = new ClientIdentity(destination, (short) 1001, "");
         while (running && destinationRunning.get()) {
             try {
+                // 2、根据 destination 获取对应 instance，如果没有就 sleep，等待产生（比如从别的 server 那边 HA 过来一个 instance）
                 CanalInstance canalInstance = canalServer.getCanalInstances().get(destination);
                 if (canalInstance == null) {
                     try {
@@ -148,6 +174,8 @@ public class CanalMQStarter {
                     }
                     continue;
                 }
+                
+                // 3、构建一个 MQ 的 destination 对象, 加载相关 mq 的配置信息，用作 mqProducer 的入参
                 MQDestination canalDestination = new MQDestination();
                 canalDestination.setCanalDestination(destination);
                 CanalMQConfig mqConfig = canalInstance.getMqConfig();
@@ -158,13 +186,16 @@ public class CanalMQStarter {
                 canalDestination.setPartitionHash(mqConfig.getPartitionHash());
                 canalDestination.setDynamicTopicPartitionNum(mqConfig.getDynamicTopicPartitionNum());
 
+                // 4、在 embeddedCanal 中注册这个订阅客户端
                 canalServer.subscribe(clientIdentity);
                 logger.info("## the MQ producer: {} is running now ......", destination);
 
                 Integer getTimeout = mqProperties.getFetchTimeout();
                 Integer getBatchSize = mqProperties.getBatchSize();
+                // 5、开始运行，并通过 embededCanal 进行流式 get/ack/rollback 协议，进行数据消费
                 while (running && destinationRunning.get()) {
                     Message message;
+                    // 5.1 getWithoutAck获取message
                     if (getTimeout != null && getTimeout > 0) {
                         message = canalServer.getWithoutAck(clientIdentity,
                             getBatchSize,
@@ -178,8 +209,8 @@ public class CanalMQStarter {
                     try {
                         int size = message.isRaw() ? message.getRawEntries().size() : message.getEntries().size();
                         if (batchId != -1 && size != 0) {
+                            // 5.2 通过mqProducer发送消息，投递成功commit，失败rollback
                             canalMQProducer.send(canalDestination, message, new Callback() {
-
                                 @Override
                                 public void commit() {
                                     canalServer.ack(clientIdentity, batchId); // 提交确认
@@ -197,7 +228,6 @@ public class CanalMQStarter {
                                 // ignore
                             }
                         }
-
                     } catch (Exception e) {
                         logger.error(e.getMessage(), e);
                     }
@@ -208,6 +238,9 @@ public class CanalMQStarter {
         }
     }
 
+    /**
+     * MQ工作线程的Runnable
+     */
     private class CanalMQRunnable implements Runnable {
 
         private String destination;
@@ -220,7 +253,7 @@ public class CanalMQStarter {
 
         @Override
         public void run() {
-            worker(destination, running);
+            worker(destination, running);  // 具体工作
         }
 
         public void stop() {

@@ -38,6 +38,14 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.WireFormat;
 
+/**
+ * canalServer 的处理逻辑显然都在 sessionHandler 里面，而这个 handler 在构建时，传入了 embeddedServer。
+ * serverWithNetty 的处理逻辑是委派给 embeddedServer 的，
+ * 所以这里就非常顺理成章了，让 handler 维护 embeddedServer 实例，进行逻辑处理。
+ *
+ * sessionHandler 继承了 netty 的 SimpleChannelHandler 类，重写了 messageReceived 方法，
+ * 接收到不同请求后，委托 embeddedServer 用不同方法进行处理。
+ */
 public class SessionHandler extends SimpleChannelHandler {
 
     private static final Logger     logger = LoggerFactory.getLogger(SessionHandler.class);
@@ -50,6 +58,13 @@ public class SessionHandler extends SimpleChannelHandler {
         this.embeddedServer = embeddedServer;
     }
 
+    /**
+     * 收到客户端请求的处理方法
+     * SessionHandler 对 client 请求进行解析后，根据请求类型，委派给 CanalServerWithEmbedded 的相应方法进行处理
+     * @param ctx
+     * @param e
+     * @throws Exception
+     */
     @SuppressWarnings({ "deprecation" })
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
         logger.info("message receives in session handler...");
@@ -58,8 +73,9 @@ public class SessionHandler extends SimpleChannelHandler {
         Packet packet = Packet.parseFrom(buffer.readBytes(buffer.readableBytes()).array());
         ClientIdentity clientIdentity = null;
         try {
+            // 根据客户端发送的网路通信包请求类型type，将请求委派embeddedServer处理
             switch (packet.getType()) {
-                case SUBSCRIPTION:
+                case SUBSCRIPTION: // 订阅请求
                     Sub sub = Sub.parseFrom(packet.getBody());
                     if (StringUtils.isNotEmpty(sub.getDestination()) && StringUtils.isNotEmpty(sub.getClientId())) {
                         clientIdentity = new ClientIdentity(sub.getDestination(),
@@ -96,7 +112,7 @@ public class SessionHandler extends SimpleChannelHandler {
                                 (short) 401));
                     }
                     break;
-                case UNSUBSCRIPTION:
+                case UNSUBSCRIPTION: // 取消订阅请求
                     Unsub unsub = Unsub.parseFrom(packet.getBody());
                     if (StringUtils.isNotEmpty(unsub.getDestination()) && StringUtils.isNotEmpty(unsub.getClientId())) {
                         clientIdentity = new ClientIdentity(unsub.getDestination(),
@@ -126,7 +142,7 @@ public class SessionHandler extends SimpleChannelHandler {
                                 (short) 401));
                     }
                     break;
-                case GET:
+                case GET: // 获取binlog请求
                     Get get = CanalPacket.Get.parseFrom(packet.getBody());
                     if (StringUtils.isNotEmpty(get.getDestination()) && StringUtils.isNotEmpty(get.getClientId())) {
                         clientIdentity = new ClientIdentity(get.getDestination(), Short.valueOf(get.getClientId()));
@@ -143,6 +159,8 @@ public class SessionHandler extends SimpleChannelHandler {
                         // get.getFetchSize(), get.getTimeout(), unit);
                         // }
                         // } else {
+                        
+                        //  根据客户端是否指定了请求超时时间调用embeddedServer不同方法获取binlog
                         if (get.getTimeout() == -1) {// 是否是初始值
                             message = embeddedServer.getWithoutAck(clientIdentity, get.getFetchSize());
                         } else {
@@ -247,7 +265,7 @@ public class SessionHandler extends SimpleChannelHandler {
                                 (short) 401));
                     }
                     break;
-                case CLIENTACK:
+                case CLIENTACK: // 客户端消费成功ack请求
                     ClientAck ack = CanalPacket.ClientAck.parseFrom(packet.getBody());
                     MDC.put("destination", ack.getDestination());
                     if (StringUtils.isNotEmpty(ack.getDestination()) && StringUtils.isNotEmpty(ack.getClientId())) {
@@ -286,7 +304,7 @@ public class SessionHandler extends SimpleChannelHandler {
                                 (short) 401));
                     }
                     break;
-                case CLIENTROLLBACK:
+                case CLIENTROLLBACK: // 客户端消费失败回滚请求
                     ClientRollback rollback = CanalPacket.ClientRollback.parseFrom(packet.getBody());
                     MDC.put("destination", rollback.getDestination());
                     if (StringUtils.isNotEmpty(rollback.getDestination())
@@ -317,7 +335,7 @@ public class SessionHandler extends SimpleChannelHandler {
                                 (short) 401));
                     }
                     break;
-                default:
+                default: // 无法判断请求类型
                     byte[] errorBytes = NettyUtils.errorPacket(400,
                         MessageFormatter.format("packet type={} is NOT supported!", packet.getType()).getMessage());
                     NettyUtils.write(ctx.getChannel(), errorBytes, new ChannelFutureAggregator(ctx.getChannel()

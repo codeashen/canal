@@ -1,23 +1,24 @@
-dataSourceKey: defaultDS
-destination: example
-groupId: g1
-outerAdapterKey: mysql1
-concurrent: true
+dataSourceKey: defaultDS        # 源数据源的key, 对应上面配置的srcDataSources中的值
+destination: example            # cannal的instance或者MQ的topic
+groupId: g1                     # 对应MQ模式下的groupId, 只会同步对应groupId的数据
+outerAdapterKey: mysql1         # 对应application.yml中group下配置的key 
+concurrent: true                # 是否按主键hash并行同步，并行同步的表必须保证主键不会更改及主键不能为其他同步表的外键
 dbMapping:
-  database: mytest
-  table: user
-  targetTable: mytest2.user
-  targetPk:
-    id: id
-#  mapAll: true
-  targetColumns:
+  # mirrorDb: true              # 同步DDL必须配置这个
+  database: mytest              # 源数据源的database/schema
+  table: user                   # 源数据源表名
+  targetTable: mytest2.user     # 目标数据源 库名.表名
+  targetPk:                     # 主键映射
+    id: id                      # 如果是复合主键可以换行映射多个
+#  mapAll: true                 # 是否整表映射，要求源表和目标表字段一致（配置了targetColumns，则以targetColumns为准）
+  targetColumns:                # 字段映射，目标表字段: 源表字段，如果字段名一致可不填
     id:
     name:
     role_id:
     c_time:
     test1:
   etlCondition: "where c_time>={}"
-  commitBatch: 3000 # 批量提交的大小
+  commitBatch: 3000             # 批量提交的大小
 
 
 ## Mirror schema synchronize config

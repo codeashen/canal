@@ -35,7 +35,7 @@ public class CanalAdapterService {
     private ContextRefresher    contextRefresher;
 
     @Resource
-    private AdapterCanalConfig  adapterCanalConfig;
+    private AdapterCanalConfig  adapterCanalConfig;     // canal.conf 下的所有配置
     @Resource
     private Environment         env;
 
@@ -53,11 +53,13 @@ public class CanalAdapterService {
             return;
         }
         try {
+            // 刷新同步开关
             syncSwitch.refresh();
             logger.info("## syncSwitch refreshed.");
             logger.info("## start the canal client adapters.");
+            // 加载外部适配器
             adapterLoader = new CanalAdapterLoader(adapterCanalConfig);
-            adapterLoader.init();
+            adapterLoader.init();  // 初始化canal-client
             running = true;
             logger.info("## the canal client adapters are running now ......");
         } catch (Exception e) {

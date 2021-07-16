@@ -7,7 +7,15 @@ import com.alibaba.otter.canal.common.AbstractCanalLifeCycle;
 import com.alibaba.otter.canal.parse.CanalEventParser;
 
 /**
- * 组合多个EventParser进行合并处理，group只是做为一个delegate处理
+ * 伪装成多个 mysql 实例的 slave 解析 binglog 日志。
+ * 内部维护了多个 CanalEventParser，组合多个 EventParser 进行合并处理，group 只是作为一个 delegate 处理。
+ * 
+ * 主要应用场景是分库分表：比如一个大表拆分了 4 个库，位于不同的 mysql 实例上，正常情况下，我们需要配置四个 CanalInstance。
+ * 对应的，业务上要消费数据时，需要启动 4 个客户端，分别链接 4 个 instance 实例。
+ * 
+ * 为了方便业务使用，此时我们可以让 CanalInstance 引用一个 GroupEventParser，
+ * 由 GroupEventParser 内部维护 4 个 MysqlEventParser 去 4 个不同的 mysql 实例去拉取 binlog，最终合并到一起。
+ * 此时业务只需要启动 1 个客户端，链接这个 CanalInstance 即可
  * 
  * @author jianghang 2012-10-16 上午11:23:14
  * @version 1.0.0

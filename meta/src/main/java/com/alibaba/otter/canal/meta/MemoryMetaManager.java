@@ -24,8 +24,11 @@ import com.google.common.collect.MigrateMap;
  */
 public class MemoryMetaManager extends AbstractCanalLifeCycle implements CanalMetaManager {
 
+    // 维护 destination 的订阅客户端，k-destination，v-订阅客户端列表
     protected Map<String, List<ClientIdentity>>              destinations;
+    // 维护订阅客户端对应的消费批次位点信息
     protected Map<ClientIdentity, MemoryClientIdentityBatch> batches;
+    // 
     protected Map<ClientIdentity, Position>                  cursors;
 
     public void start() {
@@ -120,7 +123,9 @@ public class MemoryMetaManager extends AbstractCanalLifeCycle implements CanalMe
 
     public static class MemoryClientIdentityBatch {
 
+        // 客户端标识
         private ClientIdentity           clientIdentity;
+        // 该客户端在instance上的消息获取情况，key是batchId，value是消费位点，即获取的每一批次数据对应的消费位点
         private Map<Long, PositionRange> batches          = new MapMaker().makeMap();
         private AtomicLong               atomicMaxBatchId = new AtomicLong(1);
 

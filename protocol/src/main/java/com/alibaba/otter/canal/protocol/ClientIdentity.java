@@ -8,14 +8,20 @@ import org.apache.commons.lang.builder.ToStringBuilder;
 import com.alibaba.otter.canal.common.utils.CanalToStringStyle;
 
 /**
+ * Canal客户端身份的标识
+ * 
+ * 目前 canal 只支持一个客户端对一个 instance 进行订阅，clientId 全部写死为 1001
+ * {@link com.alibaba.otter.canal.client.impl.SimpleCanalConnector#SimpleCanalConnector(java.net.SocketAddress, java.lang.String, java.lang.String, java.lang.String, int, int)}
+ * {@link com.alibaba.otter.canal.server.CanalMQStarter#worker(java.lang.String, java.util.concurrent.atomic.AtomicBoolean)}
+ * 
  * @author zebin.xuzb @ 2012-6-20
  * @version 1.0.0
  */
 public class ClientIdentity implements Serializable {
 
     private static final long serialVersionUID = -8262100681930834834L;
-    private String            destination;
-    private short             clientId;
+    private String            destination;  // 确定由那个CanalInstance处理
+    private short             clientId; 
     private String            filter;
 
     public ClientIdentity(){

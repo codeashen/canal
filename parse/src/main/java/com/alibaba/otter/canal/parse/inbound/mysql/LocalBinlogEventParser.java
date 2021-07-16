@@ -18,6 +18,8 @@ import com.alibaba.otter.canal.protocol.position.LogPosition;
 /**
  * 基于本地binlog文件的复制
  * 
+ * 解析本地的 mysql binlog。例如将 mysql 的 binlog 文件拷贝到 canal 的机器上进行解析。
+ * 
  * @author jianghang 2012-6-21 下午04:07:33
  * @version 1.0.0
  */
